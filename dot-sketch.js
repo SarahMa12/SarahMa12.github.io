@@ -92,6 +92,7 @@ function draw() {
             // Draw the Tooltip Box
             fill(255);
             stroke(0);
+            strokeWeight(1);
             rect(mouseX + 10, mouseY - 30, 80, 25, 5);
             
             // Draw the Tooltip Text
