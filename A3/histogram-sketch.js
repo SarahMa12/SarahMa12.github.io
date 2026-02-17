@@ -71,7 +71,6 @@ function draw() {
     // draw ticks on y
     let numTicksY = 6;
     let ySpacing = chartHeight / numTicksY;
-    let maxCountY = 60000; 
 
     for (let i = 0; i <= numTicksY; i++) {
         let y = (margin + chartHeight) - (i * ySpacing);
