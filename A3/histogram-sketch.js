@@ -27,7 +27,7 @@ function setup() {
     }
 
     for (let i = 0; i < stats.getRowCount(); i++) {
-        let ageStr = stats.getNum(i, "Age");
+        let ageStr = stats.getString(i, "Age");
         let age = Number(ageStr);
 
         // Skip NaN vals
@@ -91,7 +91,7 @@ function draw() {
     fill(100);
     textSize(14);
     textAlign(CENTER);
-    text("Age (Years)", width / 2, height - 35);
+    text("Age", width / 2, height - 35);
 
     // y axis title
     push();
