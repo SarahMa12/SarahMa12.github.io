@@ -27,3 +27,5 @@ plt.title('Distribution of Olympic Medal Athletes Weight', fontsize=16, fontweig
 plt.ylabel('Weight (lb)', fontsize=12)
 plt.tight_layout()
 plt.savefig('strip-seaborn.png')
+
+print(olympic_df['Age'].max())
