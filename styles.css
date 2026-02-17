@@ -4,13 +4,43 @@ body {
     font-family: 'Roboto', sans-serif;
     background-color: #ffcdb2;
     color: #8c636b;
-    margin: 2rem 2rem;
+    margin: 1rem 2rem;
+
+    display: flex;
+    flex-direction: column;
 }
 
 h1 {
     font-size: 2.5rem;
+
+    align-self: center;
 }
 
 h2 {
     font-size: 1.5rem;
+}
+
+ul {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* Three charts per row */
+    gap: 1.5rem;
+    padding: 0;
+    list-style: none;
+}
+
+li a {
+    display: block;
+    background: rgba(140, 99, 107, 0.1);
+    border: 2px solid #8c636b;
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+    color: #8c636b;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+li a:hover {
+    background: #8c636b;
+    color: #ffcdb2;
 }
