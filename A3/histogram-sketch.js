@@ -27,7 +27,7 @@ function setup() {
     }
 
     for (let i = 0; i < stats.getRowCount(); i++) {
-        let ageStr = stats.getString(i, "Age");
+        let ageStr = stats.getNum(i, "Age");
         let age = Number(ageStr);
 
         // Skip NaN vals
