@@ -69,7 +69,7 @@ function draw() {
     }
 
     // draw ticks on y
-    let numTicksY = 6;
+    let numTicksY = 7; // Increased from 6
     let ySpacing = chartHeight / numTicksY;
 
     for (let i = 0; i <= numTicksY; i++) {
@@ -82,7 +82,8 @@ function draw() {
         textSize(12);
         fill(100);
         textAlign(RIGHT, CENTER);
-        // draw labels
+        
+        // This will now draw labels: 0, 10000, ... up to 70000
         text(i * 10000, margin - 10, y);
     }
 
@@ -109,19 +110,55 @@ function draw() {
     text("Distribution of Olympic Medal Athletes Age", width / 2, margin / 2);
     pop();
 
+    // tool tip implementation
+    let tooltipText = "";
+    let tooltipX = mouseX;
+    let tooltipY = mouseY;
 
-    // draw bars
-    let barWidth = chartWidth / numBins;
-    
-    let maxCount = 62000; 
+    // draw bars    
+    let maxCount = 70000; 
 
     for (let i = 0; i < bins.length; i++) {
+        let barWidth = chartWidth / numBins;
+
         let h = map(bins[i], 0, maxCount, 0, chartHeight);
-        
-        fill(76, 114, 176, 200); 
-        noStroke(); 
-        
-        rect(margin + (i * barWidth), (margin + chartHeight) - h, barWidth - 1, h);
+
+        let x = margin + (i * barWidth);
+        let y = (margin + chartHeight) - h;
+
+        // Draw bar
+        fill(76, 114, 176, 200);
+        noStroke();
+        rect(x, y, barWidth - 1, h);
+
+        // Check hover
+        if (mouseX > x && mouseX < x + barWidth &&
+            mouseY > y && mouseY < y + h) {
+
+            // Calculate bin age range
+            let ageStart = minAge + (i * binSize);
+            let ageEnd = ageStart + binSize;
+
+            tooltipText =
+                "Age: " + ageStart.toFixed(1) + " - " + ageEnd.toFixed(1) +
+                "\nCount: " + bins[i];
+
+            tooltipX = mouseX;
+            tooltipY = mouseY;
+        }
     }
 
+    if (tooltipText !== "") {
+        push();
+        // draw background
+        fill(0, 180);
+        rect(tooltipX + 10, tooltipY + 10, 130, 45, 5);
+
+        // draw the text
+        fill(255);
+        textSize(12);
+        textAlign(LEFT, TOP);
+        text(tooltipText, tooltipX + 15, tooltipY + 15);
+        pop();
+    }
 }
