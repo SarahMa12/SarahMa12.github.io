@@ -130,8 +130,8 @@ function draw() {
     stroke(80);
     strokeWeight(1);
     line(centerX, yWMin, centerX, yWMax); // vertical line connecting the box to the whiskers
-    line(centerX - 20, yWMin, centerX + 20, yWMin); // bottom cap
-    line(centerX - 20, yWMax, centerX + 20, yWMax); // top cap
+    line(centerX - 50, yWMin, centerX + 50, yWMin); // bottom cap
+    line(centerX - 50, yWMax, centerX + 50, yWMax); // top cap
 
     // draw box
     fill(76, 114, 176);
