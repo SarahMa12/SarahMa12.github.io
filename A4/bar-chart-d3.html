@@ -39,7 +39,7 @@
                 fill: #492f36;
                 font-weight: 700;
                 text-anchor: middle;
-            }    
+            }  
         </style>
     </head>
 
@@ -99,7 +99,7 @@
                 svg.append("g")
                     .attr("class", "axis axis-x")
                     .attr("transform", `translate(0, ${height})`)
-                    .all(d3.axisBottom(x));
+                    .call(d3.axisBottom(x));
 
                 // Create Y-axis
                 svg.append("g")
@@ -123,8 +123,8 @@
                     .attr("y", height + 45)
                     .attr("class", "axis-title")
                     .text("Sport");
-                
-                // Add Y-axis title
+                // Add X-axis title
+
                 svg.append("text")
                     .attr("transform", "rotate(-90)")
                     .attr("x", -height / 2)
@@ -132,7 +132,6 @@
                     .attr("class", "axis-title")
                     .text("Count");
 
-                // Add graph title
                 svg.append("text")
                     .attr("x", width / 2)
                     .attr("y", -20)

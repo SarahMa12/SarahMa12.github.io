@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="../chart-styles.css">
+        <title>Scatter Plot</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <style>
+            .bar {
+                fill: #8c636b;
+            }
+
+            .axis-x path,
+            .axis-y path {
+                fill: none;
+                stroke: black;
+                shape-rendering: crispEdges;
+            }
+
+            .axis-x .tick line,
+            .axis-y .tick line {
+                stroke: black;
+            }
+
+            .axis text {
+                font-size: 12px;
+            }
+
+            .axis-title {
+                font-size: 16px;
+                fill: #5a3e44;
+                font-weight: 700;
+                text-anchor: middle;
+            }   
+            
+            .graph-title {
+                font-size: 18px;
+                fill: #492f36;
+                font-weight: 700;
+                text-anchor: middle;
+            }    
+        </style>
+    </head>
+
+    <body>
+        <a class="backbutton" href="..">Back</a>
+        <h1></h1>
+        <h2>d3:</h2>
+        <div id="chart-container"></div>
+        <script>
+            // Source: bar-chart-csv.html from prof examples
+            // Set up svg size and margins
+            const svgWidth = 800;
+            const svgHeight = 500;
+            const margin = { top: 40, right: 40, bottom: 50, left: 80 };
+            const width = svgWidth - margin.left - margin.right;
+            const height = svgHeight - margin.top - margin.bottom;
+
+            // Load csv data
+            const svg = d3.select("#chart-container")
+                .append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`)
+
+            d3.csv("athlete_events.csv").then(function(data) {
+                // Count athletes per sport
+                // Source: grouping.js from prof examples
+                const counts = d3.rollups(
+                    data,
+                    v => v.length,
+                    d => d.Sport
+                )
+
+                // Turn array of arrays into an array of objects for easy access
+                const fmt = counts.map(d => ({
+                    Sport: d[0],
+                    Count: d[1]
+                }));
+
+                // Take the top sports by sorting then slicing 
+                const topSports = fmt.sort((a, b) => b.Count - a.Count).slice(0, 8);
+
+                // Set X scale (one bar per sport)
+                const x = d3.scaleBand()
+                    .domain(topSports.map(d => d.Sport))
+                    .range([0, width])
+                    .padding(0.1);
+
+                // Set Y scale (0 to max count)
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(topSports, d => d.Count)])
+                    .nice()
+                    .range([height, 0])
+
+                // Create X-axis
+                svg.append("g")
+                    .attr("class", "axis axis-x")
+                    .attr("transform", `translate(0, ${height})`)
+                    .all(d3.axisBottom(x));
+
+                // Create Y-axis
+                svg.append("g")
+                    .attr("class", "axis axis-y")
+                    .call(d3.axisLeft(y).ticks(10));
+
+                // Draw bars
+                svg.selectAll(".bar")
+                    .data(topSports)
+                    .enter()
+                    .append("rect")
+                    .attr("class", "bar")
+                    .attr("x", d => x(d.Sport))
+                    .attr("width", x.bandwidth())
+                    .attr("y", d => y(d.Count))
+                    .attr("height", d => height - y(d.Count));
+
+                // Add X-axis title
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height + 45)
+                    .attr("class", "axis-title")
+                    .text("Sport");
+                
+                // Add Y-axis title
+                svg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -height / 2)
+                    .attr("y", -65)
+                    .attr("class", "axis-title")
+                    .text("Count");
+
+                // Add graph title
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", -20)
+                    .attr("class", "graph-title")
+                    .text("Top 8 Sports by Athlete Participation");
+            });
+        </script>
+    </body>
+</html>
