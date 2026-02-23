@@ -84,17 +84,18 @@
                     d.Height = +(d.Height / 30.48);
                     d.Weight = +(d.Weight * 2.205);
                 });
-
+                
+                // Filter out the data where height and weight aren't null
                 const filteredData = data.filter(d => d.Height && d.Weight);
                 
                 // Set X scale
                 const x = d3.scaleLinear()
-                    .domain([d3.min(filteredData, d => d.Height) - 5, d3.max(filteredData, d => d.Height) + 5])
+                    .domain([d3.min(filteredData, d => d.Height) - 1, d3.max(filteredData, d => d.Height) + 1])
                     .range([0, width]);
 
                 // Set Y scale 
                 const y = d3.scaleLinear()
-                    .domain([d3.min(filteredData, d => d.Weight) - 5, d3.max(filteredData, d => d.Weight) + 5])
+                    .domain([d3.min(filteredData, d => d.Weight) - 1, d3.max(filteredData, d => d.Weight) + 1])
                     .nice()
                     .range([height, 0]);
 
