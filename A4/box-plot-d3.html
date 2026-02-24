@@ -7,10 +7,6 @@
         <title>Box Plot</title>
         <script src="https://d3js.org/d3.v6.min.js"></script>
         <style>
-            .dot {
-                fill: #8c636b;
-            }
-
             .axis-x path,
             .axis-y path {
                 fill: none;
@@ -40,12 +36,16 @@
                 font-weight: 700;
                 text-anchor: middle;
             }    
+
+            .dot {
+                fill: #92676f;
+            }
         </style>
     </head>
 
     <body>
         <a class="backbutton" href="..">Back</a>
-        <h1>Olympic Athlete Height vs Weight (with Tooltip) in d3</h1>
+        <h1>Olympic Athlete Age Distribution (with Tooltip) in d3</h1>
 
         <div id="chart-container"></div>
         <div class="tooltip" id="tooltip"></div>
@@ -54,7 +54,7 @@
             // Source: bar-chart-csv.html from prof examples
             // Set up svg size and margins
             const svgWidth = 800;
-            const svgHeight = 500;
+            const svgHeight = 350;
             const margin = { top: 40, right: 40, bottom: 50, left: 80 };
             const width = svgWidth - margin.left - margin.right;
             const height = svgHeight - margin.top - margin.bottom;
@@ -71,17 +71,88 @@
                 data.forEach(d => {
                     d.Age = +d.Age;
                 });
+
+                // Source: https://d3-graph-gallery.com/graph/boxplot_basic.html
+                // Filter out valid ages and sort from smallest to largest
+                const ages = data
+                    .map(d => d.Age)
+                    .sort(d3.ascending);
+                
+                // Calcuate quartiles
+                const q1 = d3.quantile(ages, .25);
+                const median = d3.quantile(ages, .5)
+                const q3 = d3.quantile(ages, .75)
+
+                // Calculate iqr and whisker bounds
+                const iqr = q3 - q1
+                const minBound = q1 - 1.5 * iqr
+                const maxBound = q3 + 1.5 * iqr
+
+                // Get outliers
+                const outliers = data.filter(d => d.Age < minBound || d.Age > maxBound);
                 
                 // Set X scale
                 const x = d3.scaleLinear()
-                    .domain([d3.min(filteredData, d => d.Height) - 5, d3.max(filteredData, d => d.Height) + 5])
+                    .domain([0, d3.max(ages)])
+                    .nice()
                     .range([0, width]);
 
-                // Set Y scale 
-                const y = d3.scaleLinear()
-                    .domain([d3.min(filteredData, d => d.Weight) - 5, d3.max(filteredData, d => d.Weight) + 5])
-                    .nice()
-                    .range([height, 0]);
+                // Box features
+                var center = height / 2; // Vertical center of boxplot
+                var boxHeight = 150; // Height of the box
+
+                // Draw whisker line (min to max bound)
+                svg.append("line")
+                    .attr("y1", center)
+                    .attr("y2", center)
+                    .attr("x1", x(minBound) )
+                    .attr("x2", x(maxBound) )
+                    .attr("stroke", "#5a3e44")
+
+                // Draw the box from Q1 to Q3
+                svg.append("rect")
+                    .attr("x", x(q1))
+                    .attr("y", center - boxHeight / 2)
+                    .attr("height", boxHeight)
+                    .attr("width", (x(q3)-x(q1)))
+                    .attr("stroke", "black")
+                    .style("fill", "#8c636b")
+
+                // Draw median, min, and max lines
+                svg.selectAll("lines")
+                    .data([minBound, median, maxBound])
+                    .enter()
+                    .append("line")
+                    .attr("y1", center - boxHeight / 2)
+                    .attr("y2", center + boxHeight / 2)
+                    .attr("x1", (d) => x(d))
+                    .attr("x2", (d) => x(d)) 
+                    .attr("stroke", "black")
+
+                const tooltip = d3.select("#tooltip");
+
+                // Draw circles for outliers
+                svg.selectAll("outlier")
+                    .data(outliers)
+                    .enter()
+                    .append("circle")
+                    .attr("cx", d => x(d.Age))
+                    .attr("cy", center)
+                    .attr("r", 4)
+                    .attr("class", "dot")
+                    .on("mouseover", (event, d) => {
+                    tooltip
+                        .html(`<strong>Name</strong>: ${d.Name}<br><strong>Age</strong>: ${d.Age}<br><strong>Sport</strong>: ${d.Sport}`)
+                        .style("opacity", 1);
+                    })
+                    .on("mousemove", (event) => {
+                        tooltip
+                            .style("left", (event.pageX + 12) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+                    })
+                    .on("mouseleave", (event) => {
+                        tooltip.style("opacity", 0);    
+                    });
 
                 // Create X-axis
                 svg.append("g")
@@ -89,35 +160,19 @@
                     .attr("transform", `translate(0, ${height})`)
                     .call(d3.axisBottom(x));
 
-                // Create Y-axis
-                svg.append("g")
-                    .attr("class", "axis axis-y")
-                    .call(d3.axisLeft(y).ticks(10));
-
-                const tooltip = d3.select("#tooltip");
-
-               
                 // Add X-axis title
                 svg.append("text")
                     .attr("x", width / 2)
                     .attr("y", height + 45)
                     .attr("class", "axis-title")
-                    .text("Height (ft)");
-                
-                // Add Y-axis title
-                svg.append("text")
-                    .attr("transform", "rotate(-90)")
-                    .attr("x", -height / 2)
-                    .attr("y", -65)
-                    .attr("class", "axis-title")
-                    .text("Weight (lbs)");
+                    .text("Age");
 
                 // Add graph title
                 svg.append("text")
                     .attr("x", width / 2)
                     .attr("y", -20)
                     .attr("class", "graph-title")
-                    .text("Olympic Athlete Height vs Weight");
+                    .text("Olympic Athlete Age Distribution");
             });
         </script>
     </body>
