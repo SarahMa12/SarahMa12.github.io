@@ -74,6 +74,7 @@
                 const ages = data.map(d => d.Age);
 
                 // Group age values into ranges of 20 bins
+                // Source: https://d3js.org/d3-array/bin
                 const bins = d3.bin()
                     .domain(d3.extent(ages))
                     .thresholds(20)(ages);
