@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="../chart-styles.css">
+        <title>Bubble Chart</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
+        <style>
+            .axis-x path,
+            .axis-y path {
+                fill: none;
+                stroke: black;
+                shape-rendering: crispEdges;
+            }
+
+            .axis-x .tick line,
+            .axis-y .tick line {
+                stroke: black;
+            }
+
+            .axis text {
+                font-size: 12px;
+            }
+
+            .axis-title {
+                font-size: 16px;
+                fill: #5a3e44;
+                font-weight: 700;
+                text-anchor: middle;
+            }   
+            
+            .graph-title {
+                font-size: 18px;
+                fill: #492f36;
+                font-weight: 700;
+                text-anchor: middle;
+            }  
+
+            #chart-container {
+                background-color: #ffdfcd;
+                border-radius: 15px;
+                border: 1px solid #5a3e44;
+            }
+        </style>
+    </head>
+
+    <body>
+        <a class="backbutton" href="..">Back</a>
+        <h1>Bubble Chart in D3: Screen Time Impact</h1>
+        <div id="chart-container"></div>
+        <script>
+            const svgWidth = 1000; // Increased to fit legend on the right
+            const svgHeight = 650; 
+            const margin = { top: 70, right: 200, bottom: 70, left: 100 }; // Wider right margin
+            const width = svgWidth - margin.left - margin.right;
+            const height = svgHeight - margin.top - margin.bottom;
+
+            const svg = d3.select("#chart-container")
+                .append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Bubble Chart components from source
+            // Source: https://d3-graph-gallery.com/graph/bubble_color.html
+            d3.csv("screen_time.csv").then(function(data) {
+                // Aggregate data (grouping data by occupation and gender)
+                // For each group compute averages for daily phone hrs, work productivity, and stress level
+                // Source: https://stackoverflow.com/questions/66224118/how-to-group-by-multiple-keys-at-the-same-time-using-d3
+                const newData = d3.rollups(
+                    data,
+                    v => ({
+                        // Compute averages
+                        avgPhone: d3.mean(v, d => +d.Daily_Phone_Hours),
+                        avgProductivity: d3.mean(v, d => +d.Work_Productivity_Score),
+                        avgStress: d3.mean(v, d => +d.Stress_Level),
+
+                        // Store occupation and gender
+                        occupation: v[0].Occupation,
+                        gender: v[0].Gender
+                    }),
+                    d => `${d.Occupation}-${d.Gender}` // Combine occupation and gender into one group
+                ).map(([key, values]) => ({ id: key, ...values })); // Convert [key, values] into Object format
+                
+                // Creating scales
+                // Finding min and max for x and y scale vars
+                const phoneExtent = d3.extent(newData, d => d.avgPhone);
+                const prodExtent = d3.extent(newData, d => d.avgProductivity);
+                
+                // Add padding so bubbles don't overlap axes
+                const xPadding = (phoneExtent[1] - phoneExtent[0]) * 0.15;
+                const yPadding = (prodExtent[1] - prodExtent[0]) * 0.15;
+                
+                // X scale
+                const x = d3.scaleLinear()
+                    .domain([phoneExtent[0] - xPadding, phoneExtent[1] + xPadding])
+                    .nice()
+                    .range([0, width]);
+                
+                // Y scale
+                const y = d3.scaleLinear()
+                    .domain([prodExtent[0] - yPadding, prodExtent[1] + yPadding])
+                    .nice()
+                    .range([height, 0]);
+                
+                // Size scale
+                const size = d3.scaleLinear()
+                    .domain(d3.extent(newData, d => d.avgStress))
+                    .range([25, 60]);
+                
+                // Color scale
+                const color = d3.scaleOrdinal(d3.schemeSet1);
+
+                // Title of chart
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", -30)
+                    .attr("class", "graph-title")
+                    .text("Screen Time Impact on Productivity and Stress Based On Occupation and Gender");
+
+                // Plot bubbles
+                // Create groups for each of the bubbles to store a bubble and also a label
+                const bubbles = svg.selectAll(".bubble-group")
+                    .data(newData)
+                    .enter()
+                    .append("g")
+                    .attr("transform", d => {
+                        const xPos = x(d.avgPhone);
+                        const yPos = y(d.avgProductivity);
+                        return `translate(${xPos}, ${yPos})`;
+                    });
+
+                // Create bubble circles
+                bubbles.append("circle")
+                    .attr("r", d => size(d.avgStress)) // Radius = stress
+                    .attr("fill", d => color(d.occupation)) // Color = occupation
+                    .attr("opacity", 0.5)
+                    .attr("stroke", "#5a3e44");
+                
+                // Add gender label inside each bubble
+                bubbles.append("text")
+                    .text(d => d.gender)
+                    .attr("text-anchor", "middle")
+                    .attr("dy", "4") // To center the text
+                    .style("font-size", "11px")
+                    .style("font-weight", "bold");
+
+                // Draw axes
+                // X axis ticks
+                svg.append("g")
+                    .attr("transform", `translate(0, ${height})`)
+                    .call(d3.axisBottom(x));
+                
+                // Y axis ticks
+                svg.append("g")
+                    .call(d3.axisLeft(y).ticks(5));
+                
+                // X axis label
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height + 45)
+                    .attr("class", "axis-title")
+                    .text("Daily Phone Usage (Hours)");
+
+                // Y axis label
+                svg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -height / 2)
+                    .attr("y", -60)
+                    .attr("class", "axis-title")
+                    .text("Average Productivity Score (1-10)");
+
+                // Create legends using https://d3-legend.susielu.com/
+                const legendX = width;
+
+                // Color legend for occupation
+                const colorLegendGroup = svg.append("g")
+                    .attr("class", "legendOrdinal")
+                    .attr("transform", `translate(${legendX}, 20)`);
+
+                const legendOrdinal = d3.legendColor()
+                    .shape("rect")
+                    .shapePadding(10)
+                    .scale(color) 
+                    .title("Occupation")
+                    .titleWidth(100);
+
+                colorLegendGroup.call(legendOrdinal);
+
+                // Size legend for stress level
+                const sizeLegendGroup = svg.append("g")
+                    .attr("class", "legendSize")
+                    .attr("transform", `translate(${legendX}, 180)`);
+
+                const legendSize = d3.legendSize()
+                    .scale(size)
+                    .shape('circle')
+                    .shapePadding(25)
+                    .labelFormat(d3.format(".1f"))
+                    .title("Average Stress Level (1-10)")
+                    .cells(3) // Shows 3 circles (min, mid, max)
+                    .orient('vertical');
+
+                sizeLegendGroup.call(legendSize);
+
+                // Styles
+                svg.selectAll(".legendTitle")
+                    .style("font-weight", "bold")
+                    .style("font-size", "14px")
+                    .attr("fill", "#492f36");
+                
+                svg.selectAll(".legendCells text")
+                    .style("font-size", "12px");
+
+                sizeLegendGroup.selectAll(".swatch")
+                    .style("fill", "none")
+                    .style("stroke", "#492f36")
+                    .style("stroke-width", "1px");
+            });
+        </script>
+    </body>
+</html>
