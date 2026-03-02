@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="../chart-styles.css">
+        <title>Line Chart</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
+        <style>
+            .axis-x path, .axis-y path { 
+                fill: none; 
+                stroke: black; 
+                shape-rendering: crispEdges; 
+            }
+
+            .axis-x .tick line, .axis-y .tick line { 
+                stroke: black; 
+            }
+
+            .axis text {
+                font-size: 12px; 
+            }
+            .axis-title { 
+                font-size: 16px; 
+                fill: #5a3e44; 
+                font-weight: 700; 
+                text-anchor: middle; 
+            }   
+            .graph-title { 
+                font-size: 18px; 
+                fill: #492f36; 
+                font-weight: 700; 
+                text-anchor: middle; 
+            }  
+
+            #chart-container { 
+                background-color: #ffdfcd; 
+                border-radius: 15px; 
+                border: 1px solid #5a3e44; 
+            }
+
+            .legend text { 
+                font-size: 12px; 
+            }
+
+            .legend .legendTitle { 
+                font-weight: 700; 
+                font-size: 14px; 
+                fill: #5a3e44; 
+            }
+
+            .tooltip {
+                position: absolute;
+                background: rgba(0, 0, 0, 0.85);
+                color: #fff;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+                pointer-events: none;
+                opacity: 0;
+                z-index: 100;
+            }
+        </style>
+    </head>
+
+    <body>
+        <a class="backbutton" href="..">Back</a>
+        <h1>Average Annual Chocolate Sales by Country</h1>
+        <div id="chart-container"></div>
+        <script>
+            const svgWidth = 900;
+            const svgHeight = 600;
+            const margin = { top: 70, right: 150, bottom: 70, left: 110 };
+            const width = svgWidth - margin.left - margin.right;
+            const height = svgHeight - margin.top - margin.bottom;
+
+            const svg = d3.select("#chart-container")
+                .append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const parseTime = d3.timeParse("%m/%d/%Y");
+
+            d3.csv("chocolate-sales.csv").then(function(data) {
+                // Parse and format data correctly
+                data.forEach(d => {
+                    d.Date = parseTime(d.Date);
+                    d.Year = d.Date.getFullYear();
+                    d.Amount = +d.Amount.replace(/[$,]/g, ""); // Convert currency str into numeric
+                });
+
+                // Aggregate data into mean amount, country, and days into a single year
+                const aggre = d3.rollups(
+                    data,
+                    v => d3.mean(v, d => d.Amount),
+                    d => d.Country,
+                    d => d.Year
+                );
+
+                // Turn array of arrays into an array of objects
+                const fmt = aggre.map(([country, yearValues]) => {
+                    return {
+                        key: country,
+                        values: yearValues.map(([year, avg]) => ({
+                            date: new Date(year, 0, 1), // Convert year to Date obj for time scale
+                            amount: avg
+                        })).sort((a, b) => a.date - b.date) // Sort by date so line is draw in chronological order
+                    };
+                });
+
+                // X scale
+                const x = d3.scaleTime()
+                    .domain(d3.extent(data, d => d.Date))
+                    .range([0, width]);
+
+                // Y scale
+                const y = d3.scaleLinear()
+                    .domain([
+                        d3.min(fmt, c => d3.min(c.values, d => d.amount)) * 0.95, 
+                        d3.max(fmt, c => d3.max(c.values, d => d.amount)) * 1.05
+                    ])
+                    .nice()
+                    .range([height, 0]);
+
+                // Color scale
+                const color = d3.scaleOrdinal(d3.schemeSet1);
+
+                // Draw lines
+                svg.selectAll(".line")
+                    .data(fmt)
+                    .enter()
+                    .append("path")
+                    .attr("fill", "none")
+                    .attr("stroke", d => color(d.key))
+                    .attr("stroke-width", 2)
+                    .attr("d", d => d3.line()
+                        .x(p => x(p.date))
+                        .y(p => y(p.amount))(d.values));
+
+                // Add circles for Tooltips
+                const dots = svg.selectAll(".dot-group")
+                    .data(fmt)
+                    .enter()
+                    .append("g")
+                    .style("fill", d => color(d.key));
+
+                // Init tooltip
+                const tooltip = d3.select("body").append("div").attr("class", "tooltip");
+
+                // Draw circles/dots for tooltip hover
+                dots.selectAll("circle")
+                    .data(d => d.values.map(v => ({ ...v, countryName: d.key })))
+                    .enter()
+                    .append("circle")
+                    .attr("r", 4)
+                    .attr("cx", d => x(d.date))
+                    .attr("cy", d => y(d.amount))
+                    .on("mouseover", (event, d) => {
+                        tooltip.style("opacity", 1)
+                            .html(`<strong>${d.countryName}</strong><br>
+                                   Year: ${d.date.getFullYear()}<br>
+                                   Average Sales: $${d3.format(",.2f")(d.amount)}`);
+                    })
+                    .on("mousemove", (event) => {
+                        tooltip.style("left", (event.pageX + 15) + "px")
+                               .style("top", (event.pageY - 28) + "px");
+                    })
+                    .on("mouseleave", () => tooltip.style("opacity", 0));
+                
+                // Create chart title
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", -30)
+                    .attr("class", "graph-title")
+                    .text("Average Chocolate Sales by Country");
+
+                // X axis 
+                svg.append("g")
+                    .attr("transform", `translate(0, ${height})`)
+                    .call(d3.axisBottom(x)
+                        .ticks(d3.timeYear)
+                        .tickFormat(d3.timeFormat("%Y"))
+                    );
+
+                // Y axis
+                svg.append("g")
+                    .call(d3.axisLeft(y)
+                        .ticks(5)
+                        .tickFormat(d => "$" + d3.format(",")(d))
+                    );
+
+                // X axis title
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height + 50)
+                    .attr("class", "axis-title")
+                    .text("Year");
+
+                // Y axis title
+                svg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -height / 2).attr("y", -75)
+                    .attr("class", "axis-title")
+                    .text("Average Sales Amount ($)");
+                
+                // Create legend
+                const legendGroup = svg.append("g")
+                                    .attr("class", "legend")
+                                    .attr("transform", `translate(${width + 20}, 20)`);
+
+                const legend = d3.legendColor()
+                                .shapePadding(10)
+                                .scale(color)
+                                .title("Countries")
+                                .titleWidth(150);
+
+                legendGroup.call(legend);
+            });
+        </script>
+    </body>
+</html>
