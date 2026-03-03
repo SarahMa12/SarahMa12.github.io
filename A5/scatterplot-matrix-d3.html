@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="../chart-styles.css">
+        <title>Scatterplot Matrix</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <style>
+            .axis path, .axis line { stroke: #5a3e44; }
+            .axis text { font-size: 10px; }
+
+            .axis-x .tick line,
+            .axis-y .tick line {
+                stroke: black;
+            }
+
+            .axis text {
+                font-size: 12px;
+            }
+            
+            .graph-title {
+                font-size: 18px;
+                fill: #492f36;
+                font-weight: 700;
+                text-anchor: middle;
+            }  
+
+            #chart-container {
+                background-color: #ffdfcd;
+                border-radius: 15px;
+                border: 1px solid #5a3e44;
+            }
+            
+            #chart-container { 
+                background-color: #ffdfcd; 
+                border-radius: 15px; 
+                border: 1px solid #5a3e44; 
+                display: inline-block;
+                margin-top: 20px;
+            }
+
+            .cell rect {
+                fill: white;
+                fill-opacity: 0;
+                stroke: #aaa;
+                stroke-width: 0.5px;
+                transition: fill-opacity 0.2s, stroke 0.2s;
+            }
+
+            .cell:hover rect {
+                fill-opacity: 0.15;
+                stroke: #5a3e44;
+                stroke-width: 2px;
+            }
+
+            .cell-label {
+                font-size: 12px;
+                font-weight: bold;
+                fill: #492f36;
+                pointer-events: none;
+            }
+
+            .legend-item { 
+                cursor: pointer; 
+            }
+            
+            .legend-item:hover text { 
+                text-decoration: underline; 
+            }
+            
+            .legend-item.inactive rect {
+                 fill: #ccc; 
+            }
+
+            .legend-item.inactive text {
+                 fill: #aaa; 
+            }
+
+            .legend-title { 
+                font-size: 14px; 
+                font-weight: 700;
+                fill: #5a3e44;
+            }
+        </style>
+    </head>
+
+    <body>
+        <a class="backbutton" href="..">Back</a>
+        <h1 style="text-align: center;">Scatterplot Matrix in D3 (with Interaction): Screen Time & Habit Correlation Matrix</h1>
+        <p>Click on legend to filter by occupation</p>
+        <div id="chart-container"></div>
+
+        <script>
+            const svgWidth = 1000; 
+            const svgHeight = 870;
+            const margin = { top: 70, right: 160, bottom: 80, left: 50 };
+            const width = svgWidth - margin.left - margin.right;
+            const height = svgHeight - margin.top - margin.bottom;
+
+            const svg = d3.select("#chart-container")
+                .append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Source: https://observablehq.com/@d3/splom/2
+            // Variables used in the scatterplot matrix
+            const columns = ["Social_Media_Hours", "Daily_Phone_Hours", "Work_Productivity_Score"];
+            
+            const n = columns.length;
+            const padding = 40; 
+            const size = width / n; // Size of each cell
+
+            d3.csv("screen_time2.csv").then(function(data) {
+                // Convert from string to numerical
+                data.forEach(d => {
+                    columns.forEach(c => d[c] = +d[c]);
+                });
+
+                // Create scales
+                // X scale
+                const x = columns.map(c => d3.scaleLinear()
+                    .domain(d3.extent(data, d => d[c]))
+                    .nice()
+                    .range([padding / 2, size - padding / 2])
+                );
+
+                // For each x scale define a Y scale
+                const y = x.map(scale => scale.copy().range([size - padding / 2, padding / 2]));
+
+                // Color scale per occupation
+                const occupations = ["Student", "Professional", "Business Owner", "Freelancer"]
+                const color = d3.scaleOrdinal(d3.schemeCategory10)
+                                .domain(occupations);
+
+                // Create matrix cells
+                const cell = svg.selectAll(".cell")
+                    .data(d3.cross(d3.range(n), d3.range(n)))
+                    .enter().append("g")
+                    .attr("class", "cell")
+                    .attr("transform", ([i, j]) => `translate(${i * size},${j * size})`);
+
+                // Draw cell borders
+                cell.append("rect")
+                    .attr("x", padding / 2).attr("y", padding / 2)
+                    .attr("width", size - padding).attr("height", size - padding);
+
+                // Plot circles (data points)
+                const allCircles = [];
+                cell.each(function([i, j]) {
+                    const g = d3.select(this);
+                    const dots = g.selectAll("circle")
+                        .data(data)
+                        .enter().append("circle")
+                        .attr("cx", d => x[i](d[columns[i]]))
+                        .attr("cy", d => y[j](d[columns[j]]))
+                        .attr("r", 4)
+                        .attr("fill", d => color(d.Occupation))
+                        .attr("opacity", 0.6);
+                });
+
+                // Chart title
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", -30)
+                    .attr("class", "graph-title")
+                    .text("Screen Time Impact on Productivity and Stress Based On Occupation and Gender");
+
+                // Create axes for each cell
+                cell.each(function([i, j]) {
+                    const g = d3.select(this);
+                    if (j === n - 1) 
+                        g.append("g")
+                            .attr("class", "axis")
+                            .attr("transform", `translate(0, ${size - padding/2})`)
+                            .call(d3.axisBottom(x[i]).ticks(5));
+                    if (i === 0) 
+                        g.append("g")
+                            .attr("class", "axis")
+                            .attr("transform", `translate(${padding/2}, 0)`)
+                            .call(d3.axisLeft(y[j]).ticks(5));
+                });
+
+                // Create labels on diagonal cells
+                svg.selectAll(".cell-label")
+                    .data(columns).enter().append("text")
+                    .attr("class", "cell-label")
+                    .attr("x", (d, i) => i * size + size / 2)
+                    .attr("y", (d, i) => i * size + size / 2)
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "18px")
+                    .text(d => d.replace(/_/g, " "));
+
+                // Create legend and interactive filtering from the legend
+                const legend = svg.append("g")
+                    .attr("transform", `translate(${width + 20}, 10)`);
+
+                legend.append("text")
+                    .attr("x", 0).attr("y", -10)
+                    .attr("class", "legend-title")
+                    .text("Occupation");
+
+                let activeFilter = null;
+
+                // Source for interaction: https://observablehq.com/@thinkh/step-5-filter-us-cities
+                const legendItems = legend.selectAll(".legend-item")
+                    .data(occupations)
+                    .enter().append("g")
+                    .attr("class", "legend-item")
+                    .attr("transform", (d, i) => `translate(0, ${i * 25})`)
+                    // Click interaction
+                    .on("click", function(event, d) {
+                        if (activeFilter === d) {
+                            activeFilter = null; // Reset filter
+                            svg.selectAll("circle")
+                                .transition()
+                                .attr("opacity", 0.6);
+                            legendItems.classed("inactive", false);
+                        } else {
+                            activeFilter = d; // Apply filter
+                            svg.selectAll("circle").transition()
+                                .attr("opacity", dot => dot.Occupation === d ? 0.8 : 0.05);
+                            legendItems.classed("inactive", true);
+                            d3.select(this).classed("inactive", false);
+                        }
+                    });
+
+                // Legend color boxes
+                legendItems.append("rect")
+                    .attr("width", 15).attr("height", 15)
+                    .attr("fill", d => color(d));
+                
+                // Legend labels
+                legendItems.append("text")
+                    .attr("x", 25).attr("y", 12)
+                    .text(d => d)
+                    .style("font-size", "11px");
+
+            });
+        </script>
+    </body>
+</html>
