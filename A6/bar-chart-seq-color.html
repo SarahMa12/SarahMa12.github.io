@@ -106,7 +106,7 @@
                 // Color scale
                 const colorScale = d3.scaleSequential()
                     .domain([0, d3.max(aggregated, d => d.avgPhoneHours)])
-                    .interpolator(d3.interpolatePuBu); // Using ColorBrewer built-in sequential color scale
+                    .interpolator(d3.interpolatePuBu); // Using ColorBrewer link: https://colorbrewer2.org/#type=sequential&scheme=PuBu&n=5
 
                 // Draw bars
                 svg.selectAll("rect")

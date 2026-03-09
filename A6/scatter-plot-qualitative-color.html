@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="a6-styles.css">
+        <title>Chocolate Sales Scatterplot</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
+        <style>
+            .axis-x path,
+            .axis-y path {
+                stroke: #233367;
+            }
+
+            .axis-x .tick line,
+            .axis-y .tick line {
+                stroke: #233367;
+            }
+
+            .axis-title {
+                font-size: 16px;
+                fill: #233367;
+                font-weight: 700;
+                text-anchor: middle;
+            }   
+
+            .tick text {
+                font-size: 16px; 
+                fill: #233367;
+            }
+
+            .legendTitle {
+                fill: #233367; 
+                font-size: 16px;
+                font-weight: 700;
+                font-family: sans-serif;
+            }
+
+            .legendOrdinal .label {
+                font-size: 14px;
+                fill: #36477e;
+            }
+
+            .legendOrdinal g.legendCells {
+                transform: translateY(25px);
+                fill: #333;
+            }
+        </style>
+    </head>
+
+    <body>
+        <a class="backbutton" href="..">Back</a>
+        <h1>Scatter Plot with Qualitative Color Scale from Colorbrewer</h1>
+        <div id="chart-container"></div>
+
+        <script>
+            const svgWidth = 900;
+            const svgHeight = 600;
+            const margin = { top: 60, right: 145, bottom: 70, left: 110 };
+            const width = svgWidth - margin.left - margin.right;
+            const height = svgHeight - margin.top - margin.bottom;
+
+            const svg = d3.select("#chart-container")
+                .append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`)
+
+            d3.csv("chocolate-sales.csv").then(data => {
+                // Choose 4 countries, because with all 6 it looked extra messy
+                const targetCountries = ["UK", "India", "Australia", "USA"];
+
+                // Filter the data of just those 4 countries
+                const filteredData = data.filter(d => targetCountries.includes(d.Country));
+                
+                filteredData.forEach(d => {
+                    d.Amount = +d.Amount.replace(/[$,]/g, ""); // Remove symbols/commas and convert to number
+                    d.Boxes_Shipped = +d.Boxes_Shipped;
+                });
+
+                // Create scales
+                // X-scale
+                const x = d3.scaleLinear()
+                    .domain([0, d3.max(filteredData, d => d.Boxes_Shipped)])
+                    .range([0, width]);
+
+                // Y-scale
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(filteredData, d => d.Amount)])
+                    .range([height, 0]);
+
+                // Color sclae
+                const colorScale = d3.scaleOrdinal()
+                    .domain(filteredData.map(d => d.Country))
+                    .range(d3.schemeSet2); // ColorBrewer Scheme link: https://colorbrewer2.org/#type=qualitative&scheme=Set2&n=4
+
+                // Draw circles
+                svg.selectAll("circle")
+                    .data(filteredData)
+                    .join("circle")
+                    .attr("cx", d => x(d.Boxes_Shipped))
+                    .attr("cy", d => y(d.Amount))
+                    .attr("r", 4)
+                    .attr("fill", d => colorScale(d.Country));
+
+                // Axes
+                // Add X and Y axes
+                svg.append("g")
+                    .attr("class", "axis axis-x")
+                    .attr("transform", `translate(0, ${height})`)
+                    .call(d3.axisBottom(x))
+                    .selectAll("text")
+                    .style("text-anchor", "end");
+
+                svg.append("g")
+                    .attr("class", "axis axis-y")
+                    .call(d3.axisLeft(y).ticks(6));
+
+                // X-axis title
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height + 50)
+                    .attr("class", "axis-title")
+                    .text("Boxes Shipped");
+
+                // Y-axis title
+                svg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -height / 2)
+                    .attr("y", -75)
+                    .attr("class", "axis-title")
+                    .text("Sales Revenue ($)");
+
+                // Chart title
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", -20)
+                    .attr("class", "graph-title")
+                    .text("Price of Chocolate Sale vs Boxes Sold by Country");
+
+                // Color legend
+                svg.append("g")
+                    .attr("class", "legendOrdinal")
+                    .attr("transform", `translate(${width + 40}, 20)`);
+
+                const legend = d3.legendColor()
+                    .shape("circle")
+                    .shapePadding(10)
+                    .title("Country")
+                    .scale(colorScale);
+
+                svg.select(".legendOrdinal")
+                    .call(legend);
+            });
+        </script>
+    </body>
+</html>

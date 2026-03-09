@@ -105,7 +105,7 @@
                 // Color scale
                 const colorScale = d3.scaleDiverging()
                     .domain([18, 25, 32]) 
-                    .interpolator(d3.interpolateRdBu); // Color from ColorBrewer (built-in)
+                    .interpolator(d3.interpolateRdBu); // Color from ColorBrewer link: https://colorbrewer2.org/#type=diverging&scheme=RdBu&n=5
 
                 // Draw bars
                 svg.selectAll("rect")
