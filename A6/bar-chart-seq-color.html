@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="a6-styles.css">
+        <title>Bar Chart</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
+        <style>
+            .axis-x path,
+            .axis-y path {
+                stroke: #233367;
+            }
+
+            .axis-x .tick line,
+            .axis-y .tick line {
+                stroke: #233367;
+            }
+
+            .axis-title {
+                font-size: 16px;
+                fill: #233367;
+                font-weight: 700;
+                text-anchor: middle;
+            }   
+
+            .tick text {
+                font-size: 16px; 
+                fill: #233367;
+            }
+
+            .legendTitle {
+                fill: #233367; 
+                font-size: 16px;
+                font-weight: 700;
+                font-family: sans-serif;
+            }
+
+            .legendSequential .label {
+                font-size: 14px;
+                fill: #36477e;
+            }
+
+            .legendSequential g.legendCells {
+                transform: translateY(10px);
+                fill: #333;
+            }
+        </style>
+    </head>
+
+    <body>
+        <a class="backbutton" href="..">Back</a>
+        <h1>Bar Chart with Sequential Color Scale from Colorbrewer</h1>
+        <div id="chart-container"></div>
+        <script>
+            const svgWidth = 900;
+            const svgHeight = 500;
+            const margin = { top: 50, right: 240, bottom: 60, left: 70 };
+            const width = svgWidth - margin.left - margin.right;
+            const height = svgHeight - margin.top - margin.bottom;
+
+            const svg = d3.select("#chart-container")
+                .append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`)
+
+            // Load csv data
+            d3.csv("screen_time.csv").then(data => {
+                // Aggregate data 
+                const binSize = 5;
+                const aggregated = d3.rollups(
+                    data,
+                    // Array of all rows per bin (avg productivity and avg phone hours)
+                    v => ({
+                        avgProductivity: d3.mean(v, d => +d.Work_Productivity_Score),
+                        avgPhoneHours: d3.mean(v, d => +d.Daily_Phone_Hours)
+                    }),
+                    // Grouping key 
+                    d => {
+                        const age = +d.Age;
+                        const binStart = Math.floor(age / binSize) * binSize;
+                        return `${binStart}-${binStart + (binSize - 1)}`;
+                    }
+                ).map(([ageBin, values]) => ({ // Create array of objects for d3
+                    ageBin, 
+                    avgProductivity: values.avgProductivity,
+                    avgPhoneHours: values.avgPhoneHours,
+                    sortVal: +ageBin.split('-')[0] // Get first number of each bin to sort
+                })).sort((a, b) => d3.ascending(a.sortVal, b.sortVal)); // Sort age groups in order
+
+                // Create scales
+                // X-scale
+                const x = d3.scaleBand()
+                    .range([0, width])
+                    .domain(aggregated.map(d => d.ageBin))
+                    .padding(0.2);
+
+                // Y-scale
+                const y = d3.scaleLinear()
+                    .domain([0, 10]) 
+                    .range([height, 0]);
+
+                // Color scale
+                const colorScale = d3.scaleSequential()
+                    .domain([0, d3.max(aggregated, d => d.avgPhoneHours)])
+                    .interpolator(d3.interpolatePuBu); // Using ColorBrewer built-in sequential color scale
+
+                // Draw bars
+                svg.selectAll("rect")
+                    .data(aggregated)
+                    .join("rect")
+                    .attr("x", d => x(d.ageBin))
+                    .attr("y", d => y(d.avgProductivity))
+                    .attr("width", x.bandwidth())
+                    .attr("height", d => height - y(d.avgProductivity))
+                    .attr("fill", d => colorScale(d.avgPhoneHours)) 
+                    .attr("stroke", "#333")
+                    .attr("stroke-width", 1);
+
+                // Axes
+                // Add X and Y axes
+                svg.append("g")
+                    .attr("class", "axis axis-x")
+                    .attr("transform", `translate(0, ${height})`)
+                    .call(d3.axisBottom(x));
+
+                svg.append("g")
+                    .attr("class", "axis axis-y")
+                    .call(d3.axisLeft(y).ticks(5));
+
+                // Add X-axis title
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height + 45)
+                    .attr("class", "axis-title")
+                    .text("Age");
+
+                // Add Y-axis title
+                svg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -height / 2)
+                    .attr("y", -35)
+                    .attr("class", "axis-title")
+                    .text("Average Productivity Score (1-10)");
+
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", -20)
+                    .attr("class", "graph-title")
+                    .text("Impact of Phone Usage on Productivity by Age");
+
+
+                // Color legend
+                svg.append("g")
+                    .attr("class", "legendSequential")
+                    .attr("transform", `translate(${width + 15}, 20)`);
+
+                const legend = d3.legendColor()
+                    .shapeWidth(30)
+                    .cells(5)
+                    .title("Average Daily Phone Hours")
+                    .scale(colorScale);
+
+                svg.select(".legendSequential")
+                    .call(legend);
+            });
+        </script>
+    </body>
+</html>
