@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <link rel="stylesheet" href="a6-styles.css">
+        <title>Chocolate Sales Trends</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
+        <style>
+            .axis-x path,
+            .axis-y path {
+                stroke: #233367;
+            }
+
+            .axis-x .tick line,
+            .axis-y .tick line {
+                stroke: #233367;
+            }
+
+            .axis-title {
+                font-size: 16px;
+                fill: #233367;
+                font-weight: 700;
+                text-anchor: middle;
+            }   
+
+            .tick text {
+                font-size: 16px; 
+                fill: #233367;
+            }
+
+            .legendTitle {
+                fill: #233367; 
+                font-size: 16px;
+                font-weight: 700;
+                font-family: sans-serif;
+            }
+
+            .legendOrdinal .label {
+                font-size: 14px;
+                fill: #36477e;
+            }
+
+            .legendOrdinal g.legendCells {
+                transform: translateY(25px);
+                fill: #333;
+            }
+
+            .line { 
+                fill: none; 
+                stroke-width: 2; 
+                opacity: 0.7;
+            }
+        </style>
+    </head>
+    <body>
+        <a class="backbutton" href="..">Back</a>
+        <h1>Line Chart with Qualitative Color Scale from Colorbrewer</h1>
+        <div id="chart-container"></div>
+
+        <script>
+            const margin = { top: 60, right: 145, bottom: 65, left: 115  };
+            const width = 950 - margin.left - margin.right;
+            const height = 550 - margin.top - margin.bottom;
+
+            const svg = d3.select("#chart-container")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Create time parser
+            const parseDate = d3.timeParse("%m/%d/%Y");
+
+            d3.csv("chocolate-sales.csv").then(data => {
+                    data.forEach(d => {
+                    d.Date = parseDate(d.Date);
+                    d.Amount = +d.Amount.replace(/[$,]/g, "");
+                });
+
+                const sumData = d3.rollups(data, 
+                    v => d3.sum(v, d => d.Amount), 
+                    d => d.Country, 
+                    d => d3.timeYear(d.Date)
+                );
+
+                const x = d3.scaleTime()
+                    .domain(d3.extent(data, d => d.Date))
+                    .range([0, width]);
+
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(sumData, ([, years]) => d3.max(years, ([, val]) => val)) * 1.1])
+                    .range([height, 0]);
+
+                const colorScale = d3.scaleOrdinal()
+                    .domain(data.map(d => d.Country)) 
+                    .range(d3.schemeSet1); // ColorBrewer scheme link: https://colorbrewer2.org/#type=qualitative&scheme=Set1&n=3
+
+                const line = d3.line()
+                    .x(d => x(d[0]))
+                    .y(d => y(d[1]))
+
+                svg.selectAll(".country-line")
+                    .data(sumData)
+                    .join("path")
+                    .attr("class", "line")
+                    .attr("d", d => line(d[1].sort((a,b) => a[0] - b[0])))
+                    .attr("stroke", d => colorScale(d[0]))
+                    .style("stroke-width", 2.5);
+
+                // 4. AXES
+                svg.append("g")
+                    .attr("class", "axis axis-x")
+                    .attr("transform", `translate(0, ${height})`)
+                    .call(d3.axisBottom(x)
+                        .ticks(d3.timeYear.every(1))
+                        .tickFormat(d3.timeFormat("%Y")));
+
+                svg.append("g")
+                    .attr("class", "axis axis-y")
+                    .call(d3.axisLeft(y).ticks(6));
+
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height + 50)
+                    .attr("class", "axis-title")
+                    .text("Year");
+
+                svg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -height / 2)
+                    .attr("y", -85)
+                    .attr("class", "axis-title")
+                    .text("Annual Sales Revenue ($)");
+
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", -25)
+                    .attr("class", "axis-title")
+                    .style("font-size", "18px")
+                    .text("Annual Chocolate Revenue Trends by Country");
+
+                // 6. LEGEND (Automatically populates all countries)
+                // Color legend
+                svg.append("g")
+                    .attr("class", "legendOrdinal")
+                    .attr("transform", `translate(${width + 20}, 20)`);
+
+                const legend = d3.legendColor()
+                    .shape("circle")
+                    .shapePadding(10)
+                    .title("Country")
+                    .scale(colorScale);
+
+                svg.select(".legendOrdinal")
+                    .call(legend);
+            });
+        </script>
+    </body>
+</html>
