@@ -44,3 +44,7 @@ li a:hover {
     background: #8c636b;
     color: #ffcdb2;
 }
+
+.data-container {
+    font-size: 14px;
+}
