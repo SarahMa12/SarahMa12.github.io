@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="a7-styles.css">
+        <title>Overlapping Area Chart</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
+        <style>
+            .axis-x path,
+            .axis-y path {
+                stroke: #233367;
+            }
+
+            .axis-x .tick line,
+            .axis-y .tick line {
+                stroke: #233367;
+            }
+
+            .axis-title {
+                font-size: 16px;
+                fill: #233367;
+                font-weight: 700;
+                text-anchor: middle;
+            }   
+
+            .tick text {
+                font-size: 14px; 
+                fill: #233367;
+            }
+
+            .legendTitle {
+                fill: #233367; 
+                font-size: 16px;
+                font-weight: 700;
+                font-family: sans-serif;
+            }
+            
+            .tooltip {
+                position: absolute;
+                padding: 10px;
+                background: rgba(255, 255, 255, 0.95);
+                border: 1px solid #0369a1;
+                border-radius: 8px;
+                pointer-events: none;
+                font-size: 14px;
+                box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+                color: #0c4a6e;
+                opacity: 0;
+                transition: opacity 0.2s;
+            }
+        </style>
+    </head>
+
+    <body>
+        <a class="backbutton" href="..">Back</a>
+        <h1>Multi-Series Area Chart w/ Overlapping Areas (with Tooltip)</h1>
+        <div id="chart-container"></div>
+
+        <script>
+            const svgWidth = 900;
+            const svgHeight = 500;
+            const margin = { top: 50, right: 160, bottom: 70, left: 80 };
+            const width = svgWidth - margin.left - margin.right;
+            const height = svgHeight - margin.top - margin.bottom;
+
+            const svg = d3.select("#chart-container")
+                .append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`)
+
+            // Load csv data
+            d3.csv("weather.csv").then(data => {
+                const parseTime = d3.timeParse("%Y-%m-%d"); // Format for x-axis scale
+                const formatTime = d3.timeFormat("%b %d, %Y"); // Format for tooltip
+
+                // Parse data
+                data.forEach(d => {
+                    d.date = parseTime(d["Date.Full"]);
+                    d.temp = +d["Data.Temperature.Avg Temp"];
+                });
+                
+                // Choose 4 cities to show on the graph
+                const targetCities = ["Phoenix", "San Francisco", "Chicago", "Miami"];
+                
+                // Filter the data for only 2016 and the four cities
+                const filteredData = data.filter(d => 
+                    d.date && targetCities.includes(d["Station.City"]) && d.date.getFullYear() === 2016
+                );
+
+                // Group data based on city
+                const sumstat = d3.group(filteredData, d => d["Station.City"]);
+
+                // X-scale (Time from Jan 1 - Dec 31)
+                const x = d3.scaleTime()
+                    .domain([new Date(2016, 0, 1), new Date(2016, 11, 31)]) 
+                    .range([0, width]);
+
+                // Y-scale (Temperature)
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(filteredData, d => d.temp) + 10])
+                    .range([height, 0]);
+
+                // Color scale
+                const color = d3.scaleOrdinal()
+                    .domain(targetCities)
+                    .range(d3.schemeTableau10);
+
+                // Draw areas
+                svg.selectAll(".area")
+                    .data(sumstat)
+                    .join("path")
+                    .attr("fill", d => color(d[0])) 
+                    .attr("opacity", 0.4)
+                    .attr("stroke", d => color(d[0]))
+                    .attr("d", d => d3.area()
+                        .x(p => x(p.date))
+                        .y0(height)
+                        .y1(p => y(p.temp))
+                        (d[1])
+                    );
+
+                // TOOLTIP
+                // Create the vertical line
+                const mouseLine = svg.append("line")
+                    .attr("stroke", "#233367")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "4")
+                    .attr("y1", 0)
+                    .attr("y2", height)
+                    .style("opacity", 0);
+
+                // Create tooltip div
+                const tooltip = d3.select("body")
+                    .append("div")
+                    .attr("class", "tooltip");
+
+                // Append invisible rectangles over the chart to chart mouse movements
+                svg.append("rect")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .attr("fill", "none")
+                    .attr("pointer-events", "all")
+                    .on("mousemove", function(event) {
+                        const mouseX = d3.pointer(event)[0];
+                        const date = x.invert(mouseX);
+
+                        // Find the closest data points for each city at this date
+                        let tooltipContent = `<strong>${formatTime(date)}</strong><hr>`;
+                        
+                        targetCities.forEach(city => {
+                            const cityData = sumstat.get(city);
+                            // Find point closest to the mouse date (because the data only contained ~5 days per month of temperatures)
+                            const bisect = d3.bisector(d => d.date).left; 
+                            const i = bisect(cityData, date, 1);
+                            const d = date - cityData[i-1].date > cityData[i].date - date ? cityData[i] : cityData[i-1];
+                            
+                            tooltipContent += `<div style="color:${color(city)}">● ${city}: <b>${d.temp}°F</b></div>`;
+                        });
+                        // Update the vertical line position
+                        mouseLine
+                            .attr("x1", x(date))
+                            .attr("x2", x(date))
+                            .style("opacity", 1);
+
+                        // Update the tooltip position
+                        tooltip
+                            .style("opacity", 1)
+                            .html(tooltipContent)
+                            .style("left", (event.pageX + 15) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+                    })
+                    .on("mouseout", function() {
+                        mouseLine.style("opacity", 0);
+                        tooltip.style("opacity", 0);
+                    });
+
+                // X-axis
+                svg.append("g")
+                    .attr("class", "axis-x")
+                    .attr("transform", `translate(0, ${height})`)
+                    .call(d3.axisBottom(x)
+                        .ticks(d3.timeMonth.every(1))
+                        .tickFormat(d3.timeFormat("%b")) 
+                    )
+                    .selectAll("text")
+                    .attr("transform", "rotate(-40)")
+                    .style("text-anchor", "end");
+
+                // Y-axis
+                svg.append("g")
+                    .call(d3.axisLeft(y));
+
+                // X-axis title
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height + margin.bottom - 10)
+                    .attr("class", "axis-title")
+                    .text("Date");
+
+                // Y-axis title
+                svg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -height / 2)
+                    .attr("y", -50)
+                    .attr("class", "axis-title")
+                    .text("Average Temperature (°F)");
+
+                // Chart title
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", -20)
+                    .attr("class", "graph-title")
+                    .text("Daily Average Temperature by City (2016)");
+
+                // Color legend
+                svg.append("g")
+                    .attr("class", "legendOrdinal")
+                    .attr("transform", `translate(${width + 20}, 0)`);
+
+                const legendOrdinal = d3.legendColor()
+                    .shape("rect")
+                    .shapePadding(10)
+                    .scale(color)
+                    .title("Cities");
+
+                svg.select(".legendOrdinal")
+                    .call(legendOrdinal);
+            });
+        </script>
+    </body>
+</html>
