@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="a7-styles.css">
+        <title>Small Multiples</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
+        <style>
+            #chart-container {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 20px;
+                justify-content: center;
+                padding: 20px;
+            }
+
+            #chart-container {
+                background-color: inherit;
+                border-radius: none;
+                border: none;
+            }
+
+            .chart-node {
+                background: #ffffff;
+                border: 1px solid #bae6fd;
+                border-radius: 12px;
+            }
+
+            .axis-title {
+                font-size: 12px;
+                fill: #64748b;
+                text-anchor: middle;
+            }
+
+            .tick text {
+                font-size: 10px;
+                fill: #94a3b8;
+            }
+
+            .chart-label {
+                font-size: 16px;
+                font-weight: 700;
+            }
+
+            .legendTitle {
+                fill: #233367; 
+                font-size: 16px;
+                font-weight: 700;
+                font-family: sans-serif;
+            }
+
+            .tooltip {
+                position: absolute;
+                padding: 8px 12px;
+                background: rgba(255, 255, 255, 0.98);
+                border: 1px solid #0c4a6e;
+                border-radius: 6px;
+                pointer-events: none;
+                font-size: 13px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                color: #1e293b;
+                opacity: 0;
+            }
+
+            #legend-container {
+                display: flex; 
+                justify-content: 
+                center; margin-bottom: 20px;
+            }
+        </style>
+    </head>
+
+    <body>
+        <a class="backbutton" href="..">Back</a>
+        <h1 style="text-align: center; color: #0c4a6e;">Small Multiples in D3 (with Tooltip)</h1>
+    
+        
+        <div id="chart-container"></div>
+        <div id="legend-container"></div>
+
+        <script>
+            // Dimensions for each individual chart
+            const smWidth = 350;
+            const smHeight = 250;
+            const margin = { top: 40, right: 20, bottom: 30, left: 40 };
+            const width = smWidth - margin.left - margin.right;
+            const height = smHeight - margin.top - margin.bottom;
+
+            d3.csv("weather.csv").then(data => {
+                const parseTime = d3.timeParse("%Y-%m-%d"); // Format for x-axis scale
+                const formatTime = d3.timeFormat("%b %d, %Y"); // Format for tooltip
+
+                // Parse data
+                data.forEach(d => {
+                    d.date = parseTime(d["Date.Full"]);
+                    d.temp = +d["Data.Temperature.Avg Temp"];
+                });
+
+                // Choose 4 cities to show on the graph
+                const targetCities = ["San Francisco", "Phoenix", "Chicago", "Miami"];
+                
+                // Filter the data for only 2016 and the four cities
+                const filteredData = data.filter(d => 
+                    d.date && 
+                    targetCities.includes(d["Station.City"]) &&
+                     d.date.getFullYear() === 2016
+                );
+
+                // Group data based on city
+                const sumstat = d3.group(filteredData, d => d["Station.City"]);
+
+                // X-scale (Time)
+                const x = d3.scaleTime()
+                    .domain([new Date(2016, 0, 1), new Date(2016, 11, 31)])
+                    .range([0, width]);
+
+                // Y-scale (Temperature)
+                const y = d3.scaleLinear()
+                    .domain([0, 110]) // Hardcoded so that it's consistent for all small multiple charts
+                    .range([height, 0]);
+
+                // Color scale
+                const color = d3.scaleOrdinal()
+                    .domain(targetCities)
+                    .range(d3.schemeTableau10);
+
+                // Create a grid for each chart
+                const charts = d3.select("#chart-container")
+                    .selectAll(".chart-node")
+                    .data(sumstat)
+                    .join("div")
+                    .attr("class", "chart-node")
+                    .append("svg")
+                        .attr("width", smWidth)
+                        .attr("height", smHeight)
+                    .append("g")
+                        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+                // Chart titles for each small multiple (name of the city)
+                charts.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", -15)
+                    .attr("class", "chart-label")
+                    .attr("text-anchor", "middle")
+                    .style("fill", d => color(d[0]))
+                    .text(d => d[0]);
+
+                // Draw lines
+                charts.append("path")
+                    .attr("fill", "none")
+                    .attr("stroke", d => color(d[0]))
+                    .attr("stroke-width", 3)
+                    .attr("d", d => d3.line()
+                        .x(p => x(p.date))
+                        .y(p => y(p.temp))
+                        (d[1])
+                    );
+
+                // Create the tooltip div
+                const tooltip = d3.select("body")
+                    .append("div")
+                    .attr("class", "tooltip");
+
+                // Draw tooltip dots (default invisible)
+                charts.selectAll(".dot")
+                    .data(d => d[1]) 
+                    .join("circle")
+                    .attr("class", "dot")
+                    .attr("cx", d => x(d.date))
+                    .attr("cy", d => y(d.temp))
+                    .attr("r", 2)
+                    .attr("fill", d => color(d["Station.City"]))
+                    .attr("opacity", 0)
+                    .on("mouseover", function(event, d) {
+                        d3.select(this).attr("opacity", 1).attr("r", 4);
+                        tooltip.style("opacity", 1);
+                        tooltip.html(`
+                            <strong>${d["Station.City"]}</strong><br>
+                            ${formatTime(d.date)}: <b>${d.temp}°F</b>
+                        `);
+                    })
+                    .on("mousemove", function(event) {
+                        tooltip
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 20) + "px");
+                    })
+                    .on("mouseout", function() {
+                        d3.select(this).attr("opacity", 0).attr("r", 4);
+                        tooltip.style("opacity", 0);
+                    });
+                
+                // X-axis ticks
+                charts.append("g")
+                    .attr("transform", `translate(0, ${height})`)
+                    .call(d3.axisBottom(x).ticks(4).tickFormat(d3.timeFormat("%b")));
+                
+                // Y-axis ticks
+                charts.append("g")
+                    .call(d3.axisLeft(y).ticks(5));
+                
+                // Color legend
+                const legendSvg = d3.select("#legend-container")
+                    .append("svg")
+                    .attr("width", 800) 
+                    .attr("height", 60);
+
+                const legendOrdinal = d3.legendColor()
+                    .shape("rect")
+                    .shapeWidth(20)
+                    .shapePadding(110) 
+                    .orient('horizontal')
+                    .scale(color)
+                    .labelAlign("start"); 
+
+                legendSvg.append("g")
+                    .attr("transform", "translate(50, 0)") 
+                    .call(legendOrdinal);
+
+                // Title for the whole small multiples chart
+                d3.select("#chart-container")
+                    .insert("div", ":first-child")
+                    .style("width", "100%")
+                    .style("text-align", "center")
+                    .style("color", "#233367")
+                    .style("font-weight", "700")
+                    .style("font-size", "22px")
+                    .style("margin-bottom", "10px")
+                    .text("Comparison of Average Temperature by City (2016)");
+            });
+        </script>
+    </body>
+</html>
