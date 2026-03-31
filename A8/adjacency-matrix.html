@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../chart-styles.css">
+    <title>Hi-Tech Firm - Adjacency Matrix</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f9f9f9;
+        }
+
+        #matrix-container {
+            background-color: white;
+            border-radius: 25px;
+            border: 1px solid #ccc;
+            padding: 20px;
+        }
+        /* Matrix specific styles */
+        .cell {
+            stroke: #fff;
+            stroke-width: 0.5px;
+            cursor: pointer;
+            transition: opacity 0.1s; /* Makes the dimming look slightly smoother */
+        }
+        .matrix-axis text {
+            font-size: 10px;
+            fill: #555;
+        }
+        .matrix-axis path,
+        .matrix-axis line {
+            display: none; /* Hide standard axis lines, keep only text */
+        }
+        /* Custom Tooltip Style */
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 10px;
+            font-size: 13px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            border-radius: 6px;
+            pointer-events: none;
+            opacity: 0; /* Hidden by default */
+            transition: opacity 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <a class="backbutton" href="..">Back</a>
+    <h2>Adjacency Matrix Representation</h2>
+    <div id="matrix-container"></div>
+    
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        // Setup tooltip
+        const tooltip = d3.select("#tooltip");
+
+        // Set dimensions
+        const size = 600;
+        const margin = { top: 40, right: 40, bottom: 40, left: 40 };
+        const innerSize = size - margin.left - margin.right;
+
+        // Create the SVG inside the container
+        const svg = d3.select("#matrix-container")
+            .append("svg")
+            .attr("width", size)
+            .attr("height", size)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Load the same CSV data
+        d3.csv("soc-firm-hi-tech.csv").then(function(data) {
+
+            // Get and sort nodes
+            const nodeIds = new Set(data.flatMap(d => [d.source, d.target]));
+            const sortedNodeIds = Array.from(nodeIds).sort((a, b) => +a - +b);
+
+            // Get and format the matrix data
+            const matrixData = [];
+            sortedNodeIds.forEach(source => {
+                sortedNodeIds.forEach(target => {
+                    // Check if an edge exists between this row and column
+                    const edgeExists = data.some(d => 
+                        (d.source === source && d.target === target) ||
+                        (d.source === target && d.target === source)
+                    );
+                    matrixData.push({
+                        row: source,
+                        col: target,
+                        hasEdge: edgeExists
+                    });
+                });
+            });
+
+            // X-scale
+            const x = d3.scaleBand()
+                .domain(sortedNodeIds)
+                .range([0, innerSize]);
+
+            // Y-scale
+            const y = d3.scaleBand()
+                .domain(sortedNodeIds)
+                .range([0, innerSize]);
+
+            // Draw matrix cells
+            svg.selectAll(".cell")
+                .data(matrixData)
+                .join("rect")
+                .attr("class", "cell")
+                .attr("x", d => x(d.col))
+                .attr("y", d => y(d.row))
+                .attr("width", x.bandwidth())
+                .attr("height", y.bandwidth())
+                .attr("fill", d => d.hasEdge ? "#414d70" : "#f0f0f0")
+                
+                // Hover interaction
+                .on("mouseover", function(event, d) {
+                    
+                    // Dim all cells in the matrix on mouse over
+                    svg.selectAll(".cell").attr("opacity", 0.15);
+                    
+                    // Restore opacity of cells in the same row and column as hover
+                    svg.selectAll(".cell")
+                        .filter(c => c.row === d.row || c.col === d.col)
+                        .attr("opacity", 1);
+
+                    // Show the tooltip
+                    tooltip.style("opacity", 1)
+                           .html(`Row Node: <strong>${d.row}</strong><br>Col Node: <strong>${d.col}</strong>`)
+                           .style("left", (event.pageX + 15) + "px")
+                           .style("top", (event.pageY - 20) + "px");
+                })
+                .on("mouseout", function(event, d) { // When mouse leaves
+                    
+                    // Restore original opacity of all the cells
+                    svg.selectAll(".cell")
+                        .attr("opacity", 1)
+                        .attr("stroke", "#fff")
+                        .attr("stroke-width", 0.5);
+                    
+                    // Hide tooltip
+                    tooltip.style("opacity", 0);
+                });
+
+            // Axis on the top
+            svg.append("g")
+                .attr("class", "matrix-axis")
+                .call(d3.axisTop(x));
+
+            // Axis on th eleft
+            svg.append("g")
+                .attr("class", "matrix-axis")
+                .call(d3.axisLeft(y));
+        });
+    </script>
+</body>
+</html>
