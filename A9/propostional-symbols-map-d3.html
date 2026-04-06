@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>USA Grocery Cost Proportional Symbols</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script src="https://unpkg.com/topojson@3"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
+    <link rel="stylesheet" href="../chart-styles.css">
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: rgb(251, 243, 231);
+        }
+        svg {
+            background-color: rgb(230, 217, 235);
+            border-radius: 15px;
+            margin: 10px 20px;
+        }
+        h1 { color: rgb(84, 24, 108); }
+        
+        .state-outline {
+            fill: #f0f0f0;
+            stroke: #bcbcbc;
+            stroke-width: 0.5px;
+        }
+
+        .bubble {
+            fill: rgb(84, 24, 108);
+            fill-opacity: 0.5;
+            stroke: rgb(84, 24, 108);
+            stroke-width: 1px;
+        }
+
+        .bubble:hover {
+            fill: orange !important;
+            fill-opacity: 0.8;
+            stroke: #333;
+        }
+
+        #tooltip {
+            position: absolute;
+            opacity: 0;
+            background: rgba(255, 255, 255, 0.98);
+            padding: 8px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 14px;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <a class="backbutton" href="..">Back</a>
+    <h1>Proportional Symbols Map in D3 (with Tooltip)</h1>
+    
+    <div id="tooltip"></div>
+    <div id="chart-container"></div>
+
+    <script>
+        const svgWidth = 900;
+        const svgHeight = 700; 
+        const margin = { top: 30, right: 40, bottom: 80, left: 40 };
+        const width = svgWidth - margin.left - margin.right;
+        const height = svgHeight - margin.top - margin.bottom;
+
+        const svg = d3.select("#chart-container")
+            .append("svg")
+            .attr("width", svgWidth)
+            .attr("height", svgHeight)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const tooltip = d3.select("#tooltip");
+
+        // Projection scale
+        const projection = d3.geoAlbersUsa()
+            .scale(1150) 
+            .translate([width / 2, height / 2]);
+
+        const path = d3.geoPath().projection(projection);
+
+        // Load data
+        Promise.all([
+            d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"),
+            d3.csv("expensive-states.csv"),
+            d3.csv("lat-long.csv")
+        ]).then(function(loadData) {
+            const us = loadData[0];
+            const expensiveData = loadData[1];
+            const coordsData = loadData[2];
+
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", -margin.top + 30)
+                .attr("text-anchor", "middle")
+                .style("font-size", "20px")
+                .style("font-weight", "bold")
+                .style("fill", "rgb(84, 24, 108)")
+                .text("U.S. Grocery Cost Index by State");
+
+            // Join the data (combining cost data with lat/lnong by matching state names)
+            const combinedData = expensiveData.map(d => {
+                const coords = coordsData.find(c => c.state.trim() === d.State.trim());
+                return {
+                    name: d.State,
+                    value: +d.groceryCost, 
+                    lat: coords ? +coords.lat : null,
+                    lng: coords ? +coords.lng : null
+                };
+            });
+
+            // Circle scale 
+            const rScale = d3.scaleSqrt()
+                .domain([80, d3.max(combinedData, d => d.value)])
+                .range([2, 30]); 
+
+            // Draw map
+            svg.append("g")
+                .selectAll("path")
+                .data(topojson.feature(us, us.objects.states).features)
+                .join("path")
+                .attr("class", "state-outline")
+                .attr("d", path);
+
+            // Draw circles
+            svg.append("g")
+                .selectAll("circle")
+                .data(combinedData)
+                .join("circle")
+                .attr("class", "bubble")
+                .attr("cx", d => {
+                    const coords = projection([d.lng, d.lat]); // Using long and lat to convert into pixel coordinates 
+                    return coords ? coords[0] : 0;
+                })
+                .attr("cy", d => {
+                    const coords = projection([d.lng, d.lat]);
+                    return coords ? coords[1] : 0;
+                })
+                .attr("r", d => rScale(d.value))
+                .style("display", d => projection([d.lng, d.lat]) ? "inline" : "none")
+                // Tooltip interactions
+                .on("mouseover", (event, d) => {
+                    tooltip.style("opacity", 1)
+                           .html(`<strong>${d.name}</strong><br>Grocery Cost Index: ${d.value}`);
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("left", (event.pageX + 15) + "px")
+                           .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseleave", () => tooltip.style("opacity", 0));
+
+            // Color legend
+            const legendSize = d3.legendSize()
+                .scale(rScale)
+                .shape('circle')
+                .shapePadding(25)
+                .labelOffset(15)
+                .orient('horizontal')
+                .title("Grocery Cost Index")
+                .cells([80, 100, 120, 140, 160])
+                .labelFormat(d3.format(".0f"));
+
+            svg.append("g")
+                .attr("transform", `translate(${width - 220 }, ${height - 10})`)
+                .call(legendSize);
+
+            svg.selectAll(".swatch")
+                .style("fill", "none") 
+                .style("stroke", "rgb(84, 24, 108)")
+                .style("stroke-width", "1px");
+
+            svg.selectAll(".legendTitle, .label")
+                .style("fill", "rgb(84, 24, 108)");
+        });
+    </script>
+</body>
+</html>
