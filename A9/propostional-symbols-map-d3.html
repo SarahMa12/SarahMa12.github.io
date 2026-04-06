@@ -41,6 +41,12 @@
             stroke: #333;
         }
 
+        .bubble.top10 {
+            fill: #d95f02;
+            stroke: #d95f02;
+            fill-opacity: 0.7;
+        }
+
         #tooltip {
             position: absolute;
             opacity: 0;
@@ -105,14 +111,21 @@
                 .text("U.S. Grocery Cost Index by State");
 
             // Join the data (combining cost data with lat/lnong by matching state names)
-            const combinedData = expensiveData.map(d => {
+            let combinedData = expensiveData.map(d => {
                 const coords = coordsData.find(c => c.state.trim() === d.State.trim());
                 return {
                     name: d.State,
                     value: +d.groceryCost, 
                     lat: coords ? +coords.lat : null,
-                    lng: coords ? +coords.lng : null
+                    lng: coords ? +coords.lng : null,
+                    isTop10: false // Default flag
                 };
+            });
+
+            combinedData.sort((a, b) => b.value - a.value);
+
+            combinedData.forEach((d, i) => {
+                if (i < 10) d.isTop10 = true;
             });
 
             // Circle scale 
@@ -133,9 +146,10 @@
                 .selectAll("circle")
                 .data(combinedData)
                 .join("circle")
-                .attr("class", "bubble")
+                // Apply 'bubble' to all, and add 'top10' only if the flag is true
+                .attr("class", d => d.isTop10 ? "bubble top10" : "bubble")
                 .attr("cx", d => {
-                    const coords = projection([d.lng, d.lat]); // Using long and lat to convert into pixel coordinates 
+                    const coords = projection([d.lng, d.lat]);
                     return coords ? coords[0] : 0;
                 })
                 .attr("cy", d => {
@@ -144,7 +158,6 @@
                 })
                 .attr("r", d => rScale(d.value))
                 .style("display", d => projection([d.lng, d.lat]) ? "inline" : "none")
-                // Tooltip interactions
                 .on("mouseover", (event, d) => {
                     tooltip.style("opacity", 1)
                            .html(`<strong>${d.name}</strong><br>Grocery Cost Index: ${d.value}`);
