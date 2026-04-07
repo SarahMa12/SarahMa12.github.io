@@ -130,7 +130,7 @@
                 .attr("d", path)
                 .attr("fill", d => {
                     const entry = dataStore.get(d.properties.name);
-                    return entry ? colorScale(entry.score) : "#f0f0f0";
+                    return entry ? colorScale(entry.score) : "#999";
                 })
                 // Tooltip interactions
                 .on("mouseover", (event, d) => {
