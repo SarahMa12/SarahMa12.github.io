@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deceptive Chart with Tooltip</title>
+        <link rel="stylesheet" href="../chart-styles.css">
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <style>
+            .bar-normal { fill: #4e79a7; cursor: pointer; }
+            .bar-danger { fill: #d62728; cursor: pointer; }
+           
+            .axis text { font-size: 11px; font-family: sans-serif; }
+            .axis-title {
+                font-size: 14px;
+                fill: #333;
+                font-weight: 600;
+                text-anchor: middle;
+                font-family: sans-serif;
+            }   
+            .graph-title {
+                font-size: 20px;
+                font-weight: 800;
+                text-anchor: middle;
+                font-family: sans-serif;
+            }  
+            .grid line { stroke: #7c7c7c; stroke-opacity: 0.5; }
+
+            #tooltip {
+                position: absolute;
+                opacity: 0;
+                background: white;
+                border: 1px solid #ccc;
+                padding: 8px;
+                border-radius: 4px;
+                pointer-events: none;
+                font-family: sans-serif;
+                font-size: 12px;
+                box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+            }
+        </style>
+    </head>
+
+    <body>
+        <a class="backbutton" href="..">Back</a>
+        <h1>Deceptive Chart in d3 (with Tooltip)</h1>
+        
+        <div id="tooltip"></div>
+        <div id="chart-container"></div>
+
+        <script>
+            const svgWidth = 800; 
+            const svgHeight = 350; 
+            const margin = { top: 80, right: 40, bottom: 90, left: 80 };
+            const width = svgWidth - margin.left - margin.right;
+            const height = svgHeight - margin.top - margin.bottom;
+
+            const tooltip = d3.select("#tooltip");
+
+            const svg = d3.select("#chart-container")
+                .append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            d3.csv("steps_sleep.csv").then(function(data) {
+                data.forEach(d => {
+                    d.steps_per_day = +d.steps_per_day;
+                    d.sleep_hours = +d.sleep_hours;
+                });
+
+                data.sort((a, b) => a.steps_per_day - b.steps_per_day);
+
+                const x = d3.scaleBand()
+                    .domain(data.map((d, i) => i)) 
+                    .range([0, width])
+                    .padding(0.3);
+
+                const y = d3.scaleLinear()
+                    .domain([4, 9.5]) 
+                    .range([height, 0]);
+
+                svg.append("g")         
+                    .attr("class", "grid")
+                    .call(d3.axisLeft(y).ticks(5).tickSize(-width).tickFormat(""));
+
+                svg.append("g")
+                    .attr("transform", `translate(0, ${height})`)
+                    .call(d3.axisBottom(x).tickFormat(i => data[i].steps_per_day))
+                    .selectAll("text")
+                    .attr("transform", "rotate(-45)")
+                    .style("text-anchor", "end");
+
+                svg.append("g").call(d3.axisLeft(y).ticks(6).tickFormat(d => d + "h"));
+
+                svg.selectAll(".bar")
+                    .data(data)
+                    .enter()
+                    .append("rect")
+                    .attr("class", d => d.steps_per_day > 10000 ? "bar-danger" : "bar-normal")
+                    .attr("x", (d, i) => x(i))
+                    .attr("width", x.bandwidth())
+                    .attr("y", d => y(d.sleep_hours))
+                    .attr("height", d => height - y(d.sleep_hours))
+                    .on("mouseover", function(event, d) {
+                        d3.select(this).style("opacity", 0.7);
+                        tooltip.style("opacity", 1)
+                               .html(`<strong>Steps:</strong> ${d.steps_per_day}<br>
+                                      <strong>Actual Sleep:</strong> ${d.sleep_hours} hrs`);
+                    })
+                    .on("mousemove", function(event) {
+                        tooltip.style("left", (event.pageX + 10) + "px")
+                               .style("top", (event.pageY - 20) + "px");
+                    })
+                    .on("mouseout", function() {
+                        d3.select(this).style("opacity", 1);
+                        tooltip.style("opacity", 0);
+                    });
+
+                // Labels
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height + 70)
+                    .attr("class", "axis-title")
+                    .text("Steps (per Day)");
+                
+                svg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -height / 2)
+                    .attr("y", -55)
+                    .attr("class", "axis-title")
+                    .text("Sleep (Hours)");
+
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", -30)
+                    .attr("class", "graph-title")
+                    .text("Sleep vs Steps");
+            });
+        </script>
+    </body>
+</html>

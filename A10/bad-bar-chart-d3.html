@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Study Hours Bar Chart</title>
+        <link rel="stylesheet" href="../chart-styles.css">
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <style>
+            .bar {
+                fill: #8c636b;
+            }
+            .bar:hover {
+                fill: #5a3e44;
+            }
+            .axis text {
+                font-size: 12px;
+            }
+            .axis-title {
+                font-size: 16px;
+                fill: #5a3e44;
+                font-weight: 700;
+                text-anchor: middle;
+            }   
+            .graph-title {
+                font-size: 18px;
+                fill: #492f36;
+                font-weight: 700;
+                text-anchor: middle;
+            }  
+        </style>
+    </head>
+
+    <body>
+        <a class="backbutton" href="..">Back</a>
+        <h1>Bad Bar Chart</h1>
+        <div id="chart-container"></div>
+
+        <script>
+            const svgWidth = 950; 
+            const svgHeight = 500;
+            const margin = { top: 60, right: 200, bottom: 60, left: 80 };
+            const width = svgWidth - margin.left - margin.right;
+            const height = svgHeight - margin.top - margin.bottom;
+
+            const svg = d3.select("#chart-container")
+                .append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Color scale
+            const badColors = ["#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46fcf0", "#f032e6", "#bcf60c", "#fabebe"];
+
+            d3.csv("study_grades.csv").then(function(data) {
+                data.forEach(d => {
+                    d.hours_studied = +d.hours_studied;
+                    d.test_score = +d.test_score;
+                });
+
+                // X-axis
+                const x = d3.scaleBand()
+                    .domain(data.map(d => d.hours_studied))
+                    .range([0, width])
+                    .padding(0.2);
+
+                // Truncated Y-axis
+                const y = d3.scaleLinear()
+                    .domain([75, 95]) 
+                    .range([height, 0]);
+
+                svg.append("g")
+                    .attr("transform", `translate(0, ${height})`)
+                    .call(d3.axisBottom(x));
+
+                svg.append("g")
+                    .call(d3.axisLeft(y).ticks(10));
+
+                // Draw bars with individual colors
+                svg.selectAll(".bar")
+                    .data(data)
+                    .enter()
+                    .append("rect")
+                    .attr("x", d => x(d.hours_studied))
+                    .attr("width", x.bandwidth())
+                    .attr("y", d => y(d.test_score))
+                    .attr("height", d => height - y(d.test_score))
+                    .attr("fill", (d, i) => badColors[i % badColors.length]);
+
+                // Color legend (a bad one)
+                const legend = svg.append("g")
+                    .attr("transform", `translate(${width + 20}, 0)`);
+
+                legend.append("text")
+                    .attr("x", 0)
+                    .attr("y", -10)
+                    .style("font-weight", "bold")
+                    .text("Hours Studied");
+
+                const legendItem = legend.selectAll(".legend-item")
+                    .data(data)
+                    .enter()
+                    .append("g")
+                    .attr("transform", (d, i) => `translate(0, ${i * 25})`);
+
+                legendItem.append("rect")
+                    .attr("width", 18)
+                    .attr("height", 18)
+                    .attr("fill", (d, i) => badColors[i % badColors.length]);
+
+                legendItem.append("text")
+                    .attr("x", 25)
+                    .attr("y", 14)
+                    .style("font-size", "11px")
+                    .text(d => `Studied ${d.hours_studied} hrs`);
+
+                // Labels
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height + 45)
+                    .attr("class", "axis-title")
+                    .text("Hours Studied");
+                
+                svg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -height / 2)
+                    .attr("y", -50)
+                    .attr("class", "axis-title")
+                    .text("Test Score");
+
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", -25)
+                    .attr("class", "graph-title")
+                    .text("Test Scores by Hours Studied (Bad Version)");
+            });
+        </script>
+    </body>
+</html>
