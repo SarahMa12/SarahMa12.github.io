@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Ethical Market Share Chart</title>
+        <link rel="stylesheet" href="../chart-styles.css">
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <style>
+            .legend text { font-size: 14px; fill: #444; }
+            .graph-title { font-size: 22px; font-weight: 700; text-anchor: middle; fill: #111; }
+        </style>
+    </head>
+    <body>
+        <a class="backbutton" href="..">Back</a>
+        <h1>Misleading Media Market Share Chart</h1>
+        <img src="midleading-apple-pie-chart.png" alt="" width="400">
+        <div id="chart-container"></div>
+        <script>
+            const data = [
+                { brand: "RIM", share: 39.0, color: "#3498db" },
+                { brand: "Apple", share: 19.5, color: "#2ecc71" },
+                { brand: "Palm", share: 9.8, color: "#e67e22" },
+                { brand: "Motorola", share: 7.4, color: "#e74c3c" },
+                { brand: "Nokia", share: 3.1, color: "#9b59b6" },
+                { brand: "Other", share: 21.2, color: "#7f8c8d" }
+            ];
+
+            const width = 700;
+            const height = 450;
+            const radius = 160;
+
+            const svg = d3.select("#chart-container")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .append("g")
+                .attr("transform", `translate(${width / 2.5},${height / 1.8})`);
+
+            const pie = d3.pie().value(d => d.share).sort(null);
+            const arc = d3.arc().innerRadius(radius * 0.5).outerRadius(radius);
+
+            const arcs = svg.selectAll(".arc")
+                .data(pie(data))
+                .enter()
+                .append("g");
+
+            arcs.append("path")
+                .attr("d", arc)
+                .attr("fill", d => d.data.color)
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 2);
+
+            arcs.append("text")
+                .attr("transform", d => `translate(${arc.centroid(d)})`)
+                .attr("text-anchor", "middle")
+                .style("fill", "#fff")
+                .style("font-size", "12px")
+                .style("font-weight", "bold")
+                .text(d => `${d.data.share}%`);
+
+            const legend = svg.append("g")
+                .attr("transform", `translate(${radius + 40}, ${-radius + 20})`);
+
+            data.forEach((d, i) => {
+                const row = legend.append("g").attr("transform", `translate(0, ${i * 25})`);
+                row.append("rect").attr("width", 15).attr("height", 15).attr("fill", d.color);
+                row.append("text").attr("x", 25).attr("y", 12).text(d.brand);
+            });
+
+            svg.append("text")
+                .attr("x", 80).attr("y", -radius - 40)
+                .attr("class", "graph-title")
+                .text("U.S. Smartphone Marketshare (Ethical Version)");
+        </script>
+    </body>
+</html>
